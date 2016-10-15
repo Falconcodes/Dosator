@@ -33,7 +33,7 @@
 
 unsigned char shift, time;
 unsigned int time_count;
-signed char min, sec;
+signed char min, sec, clock=1;
 
 void data_conv(unsigned char, unsigned char);
 void dig_send(unsigned char);
@@ -49,7 +49,7 @@ interrupt [TIM0_OVF] void timer0_ovf_isr(void)
   if (time_count>650) 
     { 
     time_count=0;
-    sec--;
+    if(clock)sec--; //Если ход часов не запрещен, декремент секунд
     } 
   A0=A1=A2=A3=A4=0;
   switch (shift) 
@@ -132,8 +132,8 @@ PORTD=255;
 min=5;
 sec=0;
 
-data_conv(18, 0); //разделительные точки и первое подчеркивание
-putchar(11, 1); //и прочерки "-" на всех разрядах
+data_conv(18, 0); //ничего не светится вспомогательного
+putchar(11, 1); //и прочерки "-" на всех 4 разрядах
 putchar(11, 2);
 putchar(11, 3);
 putchar(11, 4);
@@ -145,7 +145,7 @@ putchar(11, 4);
 for ( ; ocr>0x20; ocr--) 
   {
   OCR1AL=ocr;
-  delay_ms(20);
+  delay_ms(30);
   }
 
 data_conv(15, 0); //разделительные точки и второе подчеркивание
@@ -230,6 +230,8 @@ last_time=min*60; //время предыдущего шага - первое значение
 step_time=(float)last_time/(float)total_vol; //время между шагами в миллисекундах
 
 sec=0;
+////////////////////////////////////////
+//////////// ОСНОВНОЙ ЦИКЛ /////////////
 while (1)
   {
    if (sec<0) 
@@ -240,10 +242,33 @@ while (1)
        {
        sec=0; 
        min=0;
-       while(1); //закончили добавлять - больше ничего не делаем
+       data_conv(sec, 1);
+       OCR1AL=ocr=SERVO_MIN; //на всякий случай - доводим серву до конца принудительно, есл ине дошел несколько шагов
+       while(!ENTER); //после добавления всего - ждем нажатия ENTER, чтобы промыть шприц
+       
+       data_conv(18, 0); //ничего не светится вспомогательного
+       putchar(11, 1); //и прочерки "-" на всех 4 разрядах
+       putchar(11, 2);
+       putchar(11, 3);
+       putchar(11, 4);
+       
+       for (i=0; i<3; i++)  //3-кратная промывка? поршень туда-обратно
+         {for ( ; ocr<SERVO_MAX; ocr++) 
+          {
+          OCR1AL=ocr;
+          delay_ms(30);
+          }
+         delay_ms(1000);         
+         for ( ; ocr>SERVO_MIN; ocr--) 
+          {
+          OCR1AL=ocr;
+          delay_ms(30);
+          }
+         delay_ms(1000);
+         }
        }
      }
-   if ((last_time - min*60 - sec) > step_time)
+   if ((last_time - min*60 - sec) > step_time) //если пришло время подвинуть сервопривод - двигаем. Причем, если секунд осталось меньше, чем шагов сервы до финиша, то делаем больше 1 шага за раз
      {
      if (ocr>SERVO_MIN) OCR1AL=ocr=ocr-1-(int)((ocr-SERVO_MIN)/(min*60+sec));
      last_time=min*60+sec;  
@@ -252,8 +277,21 @@ while (1)
    data_conv(sec, 1);
    if (sec%2==0) data_conv(10, 0); //эта и следующая строка - мигание разделительных точек
    else data_conv(18, 0);
+   if(ENTER) //вход в режим паузы
+       {
+       while(ENTER); //ждем отжатия
+       clock=0; //тормозим ход часов
+       delay_ms(1);
+       data_conv(10, 0); //ставим точки на место, если их нет
+       while(!ENTER); //ждем, пока снова не нажмут кнопку, чтобы выйти из паузы
+       delay_ms(1);
+       while(ENTER);
+       delay_ms(1);
+       clock=1; //запускаем счет времени опять
+       } 
   }
 } /////// КОНЕЦ ГЛАВНОГО ЦИКЛА ///////
+//////////////////////////////////////
 
 void data_conv(unsigned char value, unsigned char group)
 { if (group!=0)
