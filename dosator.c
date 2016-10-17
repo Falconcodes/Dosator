@@ -33,7 +33,8 @@
 
 unsigned char shift, time;
 unsigned int time_count;
-signed char min, sec, clock=1;
+eeprom signed char preset_min=90;
+unsigned char min, sec, clock=1;
 
 void data_conv(unsigned char, unsigned char);
 void dig_send(unsigned char);
@@ -149,6 +150,7 @@ for ( ; ocr>0x20; ocr--)
   }
 
 data_conv(15, 0); //разделительные точки и второе подчеркивание
+min=preset_min; //начальная установка минут - как ставили в прошлый раз (сохраняется в EEPROM)
 
 //установка времени, на протяжении которого дозируем
 while(!ENTER)
@@ -172,6 +174,7 @@ while(!ENTER)
     }
   }
  data_conv(min, 2);
+ preset_min=min; //обновляем установку времени в EEPROM, это значение будет по умолчанию при следующем включении
  }
  
  data_conv(17, 0); //разделительные точки и все подчеркивания
@@ -223,7 +226,7 @@ delay_ms(500);
 data_conv(sec, 1);
 data_conv(10, 0); //разделительные точки и нет подчеркиваний
 
-if (ocr>(SERVO_MAX-30)) OCR1AL=ocr=SERVO_MAX-30; //сразу подводим сервопривод к началу аутивной зоны шприца
+if (ocr>(SERVO_MAX-30)) OCR1AL=ocr=SERVO_MAX-30; //сразу подводим сервопривод к началу активной зоны шприца
 
 total_vol=ocr-SERVO_MIN; //общее количество шагов сервопривода
 last_time=min*60; //время предыдущего шага - первое значение
