@@ -33,8 +33,8 @@
 
 unsigned char shift, time;
 unsigned int time_count;
-eeprom signed char preset_min=90;
-unsigned char min, sec, clock=1;
+eeprom unsigned char preset_min=90;
+signed char min, sec, clock=0;
 
 void data_conv(unsigned char, unsigned char);
 void dig_send(unsigned char);
@@ -232,7 +232,9 @@ total_vol=ocr-SERVO_MIN; //общее количество шагов сервопривода
 last_time=min*60; //время предыдущего шага - первое значение
 step_time=(float)last_time/(float)total_vol; //время между шагами в миллисекундах
 
-sec=0;
+sec=59;
+
+clock=1; //запускаем счет времени
 ////////////////////////////////////////
 //////////// ОСНОВНОЙ ЦИКЛ /////////////
 while (1)
