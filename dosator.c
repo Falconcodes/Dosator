@@ -3,12 +3,14 @@
  *
  * Created: 13.10.2016 20:27:32
  * Author: Falcon
+ * SERVO - MG996
  */
 #include <mega328p.h>
 #include <delay.h>
 
-#define SERVO_MAX 0xB0
-#define SERVO_MIN 0x22
+#define SERVO_MAX 0x9A  //максимальное положение сервы
+#define SERVO_MIN 0x20  //минимальное положение сервы
+#define SERVO_DELTA 15  //количество шагов сервы от SERVO_MAX до начала зоны активного движения поршня - опытным путем
 
 //кнопки
 #define UP    !PINC.4
@@ -80,7 +82,7 @@ interrupt [TIM1_COMPA] void timer1_compa_isr(void)
 
 float step_time;
 unsigned int data, i, last_time;
-eeprom unsigned char ocr=0xB0;
+eeprom unsigned char ocr=SERVO_MIN;
 unsigned char total_vol, dose_steps=1;
 unsigned char dig[5]; //по количеству разрядов (анодов) - буфер для хранения кода символов в массиве numbers[][] - символов, которые поместим потом на дисплей на соответствующие аноды 0..4
 
@@ -146,7 +148,7 @@ putchar(11, 4);
 for ( ; ocr>0x20; ocr--) 
   {
   OCR1AL=ocr;
-  delay_ms(30);
+  delay_ms(100);
   }
 
 data_conv(15, 0); //разделительные точки и второе подчеркивание
@@ -192,7 +194,7 @@ while(!ENTER)
   {if (ocr<SERVO_MAX) OCR1AL=++ocr;  
    delay_ms(250);
    while(UP)           //при удержании - ускоренный набор
-    {delay_ms(25);
+    {delay_ms(50);
     if (ocr<SERVO_MAX) OCR1AL=++ocr;
     }
   } 
@@ -201,7 +203,7 @@ while(!ENTER)
   {if (ocr>SERVO_MIN)  OCR1AL=--ocr; 
    delay_ms(250);
    while(DOWN)
-    {delay_ms(25);
+    {delay_ms(50);
     if (ocr>SERVO_MIN) OCR1AL=--ocr;
     }
   }
@@ -226,13 +228,18 @@ delay_ms(500);
 data_conv(sec, 1);
 data_conv(10, 0); //разделительные точки и нет подчеркиваний
 
-if (ocr>(SERVO_MAX-30)) OCR1AL=ocr=SERVO_MAX-30; //сразу подводим сервопривод к началу активной зоны шприца
-
+if (ocr>(SERVO_MAX-SERVO_DELTA))   //перед стартом дозации, подводим серву к началу активной зоны движения поршня
+  {for ( ; ocr>(SERVO_MAX-SERVO_DELTA); ocr--) 
+    {
+    OCR1AL=ocr;
+    delay_ms(100);
+    }
+  }
 total_vol=ocr-SERVO_MIN; //общее количество шагов сервопривода
 last_time=min*60; //время предыдущего шага - первое значение
 step_time=(float)last_time/(float)total_vol; //время между шагами в миллисекундах
 
-sec=59;
+sec=0;
 
 clock=1; //запускаем счет времени
 ////////////////////////////////////////
